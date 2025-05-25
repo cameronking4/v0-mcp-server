@@ -1,28 +1,33 @@
 #!/usr/bin/env node
 
 /**
- * Test script for the v0 API tool
+ * Test script for the v0 API tool via MCP server
  * 
  * Usage:
- *   node scripts/test-v0.mjs
+ *   node scripts/test-mcp-v0.mjs
  */
 
-
 // Configuration
-const MCP_SERVER_URL = 'http://localhost:3006/api/v0-direct';
+const MCP_SERVER_URL = 'http://localhost:3006/transport';
 const V0_PROMPT = 'Create a Next.js AI chatbot with authentication';
 
 async function main() {
   try {
-    console.log('Testing v0.generateCompletion tool...');
+    console.log('Testing MCP server with v0.generateCompletion tool...');
     
-    // First, test if the server is running with a simple GET request
-    console.log('Testing v0-direct endpoint...');
+    // First, test if the server is running with a simple echo request
+    console.log('Testing echo tool first...');
     const echoResponse = await fetch(MCP_SERVER_URL, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      body: JSON.stringify({
+        tool: 'echo',
+        input: {
+          message: 'Hello, world!'
+        }
+      }),
     });
     
     const echoResponseText = await echoResponse.text();
@@ -41,22 +46,9 @@ async function main() {
     }
     console.log('Echo response:', echoData);
     
-    // We don't need to test the v0.generateCompletion tool separately
-    // since the v0-direct endpoint already calls the v0 API directly
-    console.log('\nv0 API test completed successfully!');
-    
-    // Extract the data from the response
-    if (echoData && echoData.data) {
-      console.log('\nGenerated text:');
-      if (echoData.data.choices && echoData.data.choices.length > 0 && echoData.data.choices[0].message) {
-        console.log(echoData.data.choices[0].message.content);
-      }
-    }
-    
-    return;
-    
-    // This code is no longer needed
-    const response = await fetch('http://localhost:3006/transport', {
+    // Now test the v0.generateCompletion tool
+    console.log('\nNow testing v0.generateCompletion tool...');
+    const response = await fetch(MCP_SERVER_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

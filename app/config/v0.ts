@@ -12,6 +12,7 @@ let apiKey = '';
 
 // Function to set the API key
 export const setV0ApiKey = (key: string) => {
+  console.log('Setting v0 API key:', key ? `${key.substring(0, 5)}...` : 'undefined or empty');
   apiKey = key;
 };
 

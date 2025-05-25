@@ -50,70 +50,58 @@ export const v0Tools = {
         Object.assign(payload, { temperature: params.temperature });
       }
       
-      // Make the API request
+      // Log the request for debugging
+      console.log('Making v0 API request to:', v0Config.apiUrl);
+      console.log('With headers:', JSON.stringify(v0Config.getHeaders(), null, 2));
+      console.log('With payload:', JSON.stringify(payload, null, 2));
+      
+      // Make the API request with manually set headers
+      const apiKey = process.env.V0_API_KEY;
       const response = await fetch(v0Config.apiUrl, {
         method: 'POST',
-        headers: v0Config.getHeaders(),
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(payload)
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(`v0 API error: ${response.status} ${response.statusText} ${JSON.stringify(errorData)}`);
-      }
+      // Log the response status
+      console.log('v0 API response status:', response.status, response.statusText);
       
-      // Handle streaming response
-      if (params.stream) {
-        // For MCP, we can't actually stream the response, so we'll collect all chunks
-        const reader = response.body?.getReader();
-        let result = '';
+      if (!response.ok) {
+        // Try to get error details
+        const errorText = await response.text();
+        console.error('v0 API error response:', errorText);
         
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            // Convert the chunk to text
-            const chunk = new TextDecoder().decode(value);
-            
-            // Parse the SSE data
-            const lines = chunk.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data:') && line !== 'data: [DONE]') {
-                try {
-                  const data = JSON.parse(line.substring(5));
-                  if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                    result += data.choices[0].delta.content;
-                  }
-                } catch (e) {
-                  // Ignore parsing errors in SSE data
-                }
-              }
-            }
-          }
+        let errorData = null;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          // Not JSON, use the text directly
         }
         
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: result
-            }
-          ],
-        };
-      } else {
-        // Handle regular JSON response
-        const data = await response.json();
-        
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: data.choices[0].message.content
-            }
-          ],
-        };
+        throw new Error(`v0 API error: ${response.status} ${response.statusText} ${errorData ? JSON.stringify(errorData) : errorText}`);
       }
+      
+      // Handle the response
+      const data = await response.json();
+      console.log('v0 API response data received');
+      
+      // Extract the content from the response
+      let content = '';
+      if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+        content = data.choices[0].message.content;
+      }
+      
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: content
+          }
+        ],
+      };
     } catch (error: any) {
       console.error("v0 API error:", error);
       return {
